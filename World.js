@@ -32,6 +32,7 @@ var FSHADER_SOURCE =
   varying vec2 v_UV;
   varying vec3 v_Normal;
   uniform vec4 u_FragColor;
+  uniform vec4 u_lightColor;
   uniform sampler2D u_Sampler0;
   uniform sampler2D u_Sampler1;
   uniform sampler2D u_Sampler2;
@@ -42,6 +43,7 @@ var FSHADER_SOURCE =
   uniform vec3 u_cameraPos;
   varying vec4 v_VertPos;
   uniform bool u_lightOn;
+  uniform bool u_lightColorB;
   void main() {
     if (u_whichTexture == -7) {
       gl_FragColor = vec4((v_Normal+1.0)/2.0, 1.0); // use normal
@@ -90,14 +92,21 @@ var FSHADER_SOURCE =
     // Specular
     float specular = pow(max(dot(E,R), 0.0), 10.0);
 
-    
-    vec3 diffuse = vec3(gl_FragColor) * nDotL * 1.5;
+    vec3 diffuse;
+    if (u_lightColorB) {
+      diffuse = vec3(u_lightColor) * nDotL * 0.7;
+    } else {
+      diffuse = vec3(gl_FragColor) * nDotL * 0.7;
+    }
     vec3 ambient = vec3(gl_FragColor) * 0.3;
     if (u_lightOn) {
-      gl_FragColor = vec4(specular+diffuse+ambient, 1.0);
+      if (u_whichTexture == -2){
+        gl_FragColor = vec4(specular+diffuse+ambient, 1.0);
+      } else {
+        gl_FragColor = vec4(diffuse+ambient, 1.0);
+      }
     } else {
-      specular = 0.0;
-      gl_FragColor = vec4(diffuse+ambient, 1.0);        
+      gl_FragColor = gl_FragColor;        
     }
 
   }`
@@ -109,6 +118,7 @@ let a_Position;
 let a_UV;
 let a_Normal;
 let u_FragColor;
+let u_lightColor;
 let u_Size;
 let u_ModelMatrix;
 let u_ProjectionMatrix;
@@ -122,6 +132,7 @@ let u_Sampler3;
 let u_Sampler4;
 let u_whichTexture;
 let u_lightOn;
+let u_lightColorB;
 let u_lightPos;
 let u_cameraPos;
 
@@ -177,6 +188,20 @@ function connectVariablesToGLSL() {
   u_lightOn = gl.getUniformLocation(gl.program, 'u_lightOn');
   if (!u_lightOn) {
     console.log('Failed to get the storage location of u_lightOn');
+    return;
+  }
+
+  // Get the storage location of u_lightColorB
+  u_lightColorB = gl.getUniformLocation(gl.program, 'u_lightColorB');
+  if (!u_lightColorB) {
+    console.log('Failed to get the storage location of u_lightColorB');
+    return;
+  }
+
+  // Get the storage location of u_lightColorB
+  u_lightColor = gl.getUniformLocation(gl.program, 'u_lightColor');
+  if (!u_lightColor) {
+    console.log('Failed to get the storage location of u_lightColor');
     return;
   }
 
@@ -291,6 +316,10 @@ let g_frontLeftLegPawAnimation = false;
 let g_normalOn = false;
 let g_lightPos = [0, 1, -2];
 let g_lightOn = true;
+let g_lightColorOn = false;
+let g_lightR;
+let g_lightG;
+let g_lightB;
 
 let g_camera;
 
@@ -323,6 +352,13 @@ function addActionsForHtmlUI() {
   document.getElementById('lightSlideX').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightPos[0] = this.value/100; renderScene(); } });
   document.getElementById('lightSlideY').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightPos[1] = this.value/100; renderScene(); } });
   document.getElementById('lightSlideZ').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightPos[2] = this.value/100; renderScene(); } });
+
+  document.getElementById('lightColorOn').onclick = function() {g_lightColorOn=true; };
+  document.getElementById('lightColorOff').onclick = function() {g_lightColorOn=false; };
+
+  document.getElementById('lightColorSlideR').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightR = this.value; renderScene(); } });
+  document.getElementById('lightColorSlideG').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightG = this.value; renderScene(); } });
+  document.getElementById('lightColorSlideB').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightB = this.value; renderScene(); } });
 
 
   document.getElementById('frontLeftLegSlide').addEventListener('mousemove', function() { g_FrontLeftLegAngle = this.value; renderScene(); });
@@ -861,10 +897,16 @@ function renderScene() {
   gl.uniform3f(u_lightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
 
   // Pass the camera position to GLSL
-  gl.uniform3f(u_cameraPos, g_camera.eye.x, g_camera.eye.y, g_camera.z);
+  gl.uniform3f(u_cameraPos, g_camera.eye.elements[0], g_camera.eye.elements[1], g_camera.eye.elements[2]);
 
   // Pass the light status
   gl.uniform1i(u_lightOn, g_lightOn);
+
+  // Pass the light color status
+  gl.uniform1i(u_lightColorB, g_lightColorOn);
+
+  // Pass the light color values
+  gl.uniform4f(u_lightColor, g_lightR, g_lightG, g_lightB, 1.0);
 
   // Draw the light
   var light = new Cube();
@@ -1112,6 +1154,7 @@ function sendTextToHTML(text, htmlID) {
 function drawCube(matrix, color) {
   var newCube = new Cube();
   newCube.color = color;
+  newCube.textureNum = -2;
   if (g_normalOn) newCube.textureNum = -7;
   newCube.matrix = matrix;
   newCube.normalMatrix.setInverseOf(newCube.matrix).transpose();
