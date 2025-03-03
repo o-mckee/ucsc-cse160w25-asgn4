@@ -90,20 +90,21 @@ var FSHADER_SOURCE =
     vec3 E = normalize(u_cameraPos - vec3(v_VertPos));
 
     // Specular
-    float specular = pow(max(dot(E,R), 0.0), 10.0);
+    float specular = pow(max(dot(E,R), 0.0), 12.0);
 
-    vec3 diffuse;
-    if (u_lightColorB) {
-      diffuse = vec3(u_lightColor) * nDotL * 0.7;
-    } else {
-      diffuse = vec3(gl_FragColor) * nDotL * 0.7;
-    }
+    vec3 diffuse = vec3(gl_FragColor) * nDotL * 0.7;
     vec3 ambient = vec3(gl_FragColor) * 0.3;
     if (u_lightOn) {
-      if (u_whichTexture == -2){
+      if (u_whichTexture == -2 || u_whichTexture == -5){
         gl_FragColor = vec4(specular+diffuse+ambient, 1.0);
+        if (u_lightColorB) {
+          gl_FragColor *= u_lightColor;
+        }
       } else {
         gl_FragColor = vec4(diffuse+ambient, 1.0);
+        if (u_lightColorB) {
+          gl_FragColor *= u_lightColor;
+        }
       }
     } else {
       gl_FragColor = gl_FragColor;        
@@ -314,12 +315,17 @@ let g_frontLeftLegAnimation = false;
 let g_FrontLeftLegPawAngle = 0;
 let g_frontLeftLegPawAnimation = false;
 let g_normalOn = false;
-let g_lightPos = [0, 1, -2];
+let g_lightPos = [0, 2.5, -2];
 let g_lightOn = true;
 let g_lightColorOn = false;
 let g_lightR;
 let g_lightG;
 let g_lightB;
+
+let g_moveLightB = false;
+let g_moveLightX = false;
+let g_moveLightY = false;
+let g_moveLightZ = false;
 
 let g_camera;
 
@@ -352,6 +358,9 @@ function addActionsForHtmlUI() {
   document.getElementById('lightSlideX').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightPos[0] = this.value/100; renderScene(); } });
   document.getElementById('lightSlideY').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightPos[1] = this.value/100; renderScene(); } });
   document.getElementById('lightSlideZ').addEventListener('mousemove', function(ev) { if(ev.buttons == 1) { g_lightPos[2] = this.value/100; renderScene(); } });
+
+  document.getElementById('moveLightOn').onclick = function() { g_moveLightB = true; };
+  document.getElementById('moveLightOff').onclick = function() { g_moveLightB = false; };
 
   document.getElementById('lightColorOn').onclick = function() {g_lightColorOn=true; };
   document.getElementById('lightColorOff').onclick = function() {g_lightColorOn=false; };
@@ -658,7 +667,11 @@ function updateAnimationAngles() {
     g_FrontLeftLegPawAngle = (45 * Math.sin(3 * g_seconds));
   }
 
-  //g_lightPos[0] = Math.cos(g_seconds);
+
+  if (g_moveLightB) {
+    g_lightPos[0] = 10*Math.sin(g_seconds);
+    g_lightPos[2] = 10*Math.cos(g_seconds);
+  }
 }
 
 function convertCoordinatesEventToGL(ev) {
